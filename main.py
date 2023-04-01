@@ -1,5 +1,5 @@
 import sys
-
+import serial
 import serial.tools.list_ports
 from PyQt5 import QtWidgets
 
@@ -33,7 +33,7 @@ from utils.newlandLib import eraseFlash, flashFirmware, flashSPIFFS, getSerialNu
 def getPort(portName: str):
     for port in serial.tools.list_ports.comports():
         if port.name == portName:
-            return port
+            return port.name
         else:
             return None
 
@@ -41,7 +41,7 @@ def getPort(portName: str):
 class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
     pathFileFirmware = ''
     pathFileFileSystem = ''
-    BAUD = '115200'  # Скорость работы порта
+    BAUD = '9600'  # Скорость работы порта
 
     def __init__(self):
         # Доступ к переменным, метода и т.д. в файле uploader.py
@@ -54,16 +54,28 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
 
     def upload(self):
         portName = str(self.ComPortComboBox.currentText())
-        port = getPort(portName)
-
+        port = serial.Serial(portName)
         eraseFlash(port=portName, baud=self.BAUD)
         flashFirmware(port=portName, baud=self.BAUD)
         flashSPIFFS(port=portName, baud=self.BAUD)
+
         deviceId = getSerialNum(port)
         generatePassword(deviceId)
+        if deviceId is False:
+            self.labelStatus.clear()
+            self.labelPassword.clear()
+            self.labelStatus.setStyleSheet("background-color: rgb(220,20,60);;\n"
+                                           "border-radius:  10px;\n"
+                                           "color:  rgb(220,20,60);")
+            self.labelPassword.setStyleSheet("background-color: rgb(220,20,60);;\n"
+                                             "border-radius:  10px;\n"
+                                             "color:  rgb(220,20,60);")
+
+
 
     def erase(self):
-        pass
+        portName = str(self.ComPortComboBox.currentText())
+        eraseFlash(port=portName, baud=self.BAUD)
 
     def firmware(self):
         self.pathFileFirmware, _ = QtWidgets.QFileDialog.getOpenFileName(
@@ -84,6 +96,7 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
             self.EraseButton.setEnabled(True)
             self.UploadButton.setEnabled(True)
             self.ClientSicret.setEnabled(True)
+
 
 
 def main():
