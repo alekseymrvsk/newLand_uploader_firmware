@@ -1,8 +1,15 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow
+
+import serial.tools.list_ports
 from PyQt5 import QtWidgets
 
-import uploader, newlandLib
+from design import uploader
+from utils.newlandLib import eraseFlash, flashFirmware, flashSPIFFS, getSerialNum, generatePassword
+
+# TODO:
+# - добавить выбор com-порта
+# - запуск команд из newLandLib.py по загрузке прошивки
+
 
 '''
 Список всех кнопок в uploader.py:
@@ -23,9 +30,18 @@ import uploader, newlandLib
 '''
 
 
+def getPort(portName: str):
+    for port in serial.tools.list_ports.comports():
+        if port.name == portName:
+            return port
+        else:
+            return None
+
+
 class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
     pathFileFirmware = ''
     pathFileFileSystem = ''
+    BAUD = '115200'  # Скорость работы порта
 
     def __init__(self):
         # Доступ к переменным, метода и т.д. в файле uploader.py
@@ -37,7 +53,14 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
         self.MakeFileSystemButton.clicked.connect(self.fileSystem)
 
     def upload(self):
-        pass
+        portName = str(self.ComPortComboBox.currentText())
+        port = getPort(portName)
+
+        eraseFlash(port=portName, baud=self.BAUD)
+        flashFirmware(port=portName, baud=self.BAUD)
+        flashSPIFFS(port=portName, baud=self.BAUD)
+        deviceId = getSerialNum(port)
+        generatePassword(deviceId)
 
     def erase(self):
         pass
@@ -50,7 +73,6 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
         if self.pathFileFirmware:
             self.FirmfareLine.setText(self.pathFileFirmware)
             self.MakeFileSystemButton.setEnabled(True)
-
 
     def fileSystem(self):
         self.pathFileFileSystem, _ = QtWidgets.QFileDialog.getOpenFileName(
