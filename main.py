@@ -2,13 +2,15 @@ import sys
 import serial
 import serial.tools.list_ports
 from PyQt5 import QtWidgets
-
+import os.path
 from design import uploader
 from utils.newlandLib import eraseFlash, flashFirmware, flashSPIFFS, getSerialNum, generatePassword
+from googleapiclient.discovery import build
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
 
-# TODO:
-# - добавить выбор com-порта
-# - запуск команд из newLandLib.py по загрузке прошивки
+# TODO
+# - Google API функция clientSicret выбор файла-токена через обзор и добавление id и пароля в таблицу
 
 
 '''
@@ -17,6 +19,7 @@ from utils.newlandLib import eraseFlash, flashFirmware, flashSPIFFS, getSerialNu
 - EraseButton
 - MakeFirmwareButton
 - MakeFileSystemButton
+- ClientSiret
 
 Список всех полей:
 - labelStatus
@@ -24,10 +27,15 @@ from utils.newlandLib import eraseFlash, flashFirmware, flashSPIFFS, getSerialNu
 - ClientSicret
 - FirmfareLine
 - FileSistemLine
+- GoogleLine
 
 Всплывающий список:
 - ComPortComboBox
 '''
+
+SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SPREADSHEET_ID = '1osUz0zxn7pscwX19GV3E6wNbfe_1MRKbV7EnDnxZH6U'
+RANGE_NAME = 'Sheet1!A1:B'
 
 
 def getPort(portName: str):
@@ -36,6 +44,13 @@ def getPort(portName: str):
             return port.name
         else:
             return None
+
+
+def checkFile(filePath):
+    if filePath.endswith('.bin') and os.path.exists(filePath):
+        return True
+    else:
+        return False
 
 
 class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
@@ -51,6 +66,20 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
         self.EraseButton.clicked.connect(self.erase)
         self.MakeFirmwareButton.clicked.connect(self.firmware)
         self.MakeFileSystemButton.clicked.connect(self.fileSystem)
+        self.ClientSicret.clicked.connect(self.clientSicret)
+
+    def clientSicret(self):
+        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        service = build('sheets', 'v4', credentials=creds)
+
+        # Call the Sheets API
+        sheet = service.spreadsheets()
+        response = sheet.values().append(
+            spreadsheetId=SPREADSHEET_ID,
+            range=RANGE_NAME,
+            valueInputOption='RAW',
+            insertDataOption='INSERT_ROWS',
+            body={'values': [['6', 'f']]}).execute()
 
     def upload(self):
         portName = str(self.ComPortComboBox.currentText())
@@ -71,8 +100,6 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
                                              "border-radius:  10px;\n"
                                              "color:  rgb(220,20,60);")
 
-
-
     def erase(self):
         portName = str(self.ComPortComboBox.currentText())
         eraseFlash(port=portName, baud=self.BAUD)
@@ -82,7 +109,7 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
             self,
             'Open File', './',
             'Files (*.bin)')
-        if self.pathFileFirmware:
+        if checkFile(self.pathFileFirmware):
             self.FirmfareLine.setText(self.pathFileFirmware)
             self.MakeFileSystemButton.setEnabled(True)
 
@@ -91,12 +118,11 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
             self,
             'Open File', './',
             'Files (*.bin)')
-        if self.pathFileFileSystem:
+        if checkFile(self.pathFileFileSystem):
             self.FileSistemLine.setText(self.pathFileFileSystem)
             self.EraseButton.setEnabled(True)
             self.UploadButton.setEnabled(True)
             self.ClientSicret.setEnabled(True)
-
 
 
 def main():

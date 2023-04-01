@@ -236,5 +236,3 @@ class Ui_MainWindow(object):
         self.labelStatus.setText(_translate("MainWindow", "Successfully:"))
         self.labelPassword.setText(_translate("MainWindow", "Pass:"))
         self.ClientSicret.setText(_translate("MainWindow", "Client Secret"))
-
-
