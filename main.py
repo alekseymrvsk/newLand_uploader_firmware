@@ -1,3 +1,5 @@
+from __future__ import print_function
+
 import sys
 import serial
 import serial.tools.list_ports
@@ -5,13 +7,21 @@ from PyQt5 import QtWidgets
 import os.path
 from design import uploader
 from utils.newlandLib import eraseFlash, flashFirmware, flashSPIFFS, getSerialNum, generatePassword
-from googleapiclient.discovery import build
+import os.path
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 
-# TODO
-# - Google API функция clientSicret выбор файла-токена через обзор и добавление id и пароля в таблицу
-
+'''
+                     !!!!!!!!!!!!!!!!!!!!!!!!!
+Добавление данных в гугл-таблицу должно быть в методе upload и 
+срабатывать после нажатия на кнопку Upload и после прошивк, 
+но для демонстрации работы кода данный функционал перенесен в метод clientService, т.к. нет целевого контроллера, т.е.
+нет ID и пароля для добавления в таблицу
+в таблицу добавляются константные значения
+'''
 
 '''
 Список всех кнопок в uploader.py:
@@ -38,14 +48,7 @@ SPREADSHEET_ID = '1osUz0zxn7pscwX19GV3E6wNbfe_1MRKbV7EnDnxZH6U'
 RANGE_NAME = 'A1:B'
 
 
-def getPort(portName: str):
-    for port in serial.tools.list_ports.comports():
-        if port.name == portName:
-            return port.name
-        else:
-            return None
-
-
+# Проверка файлов прошивки и файловой системы
 def checkFile(filePath):
     if filePath.endswith('.bin') and os.path.exists(filePath):
         return True
@@ -56,42 +59,67 @@ def checkFile(filePath):
 class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
     pathFileFirmware = ''
     pathFileFileSystem = ''
-    BAUD = '9600'  # Скорость работы порта
 
     def __init__(self):
         # Доступ к переменным, метода и т.д. в файле uploader.py
         super().__init__()
-        self.token = None
+        # self.token = None
         self.setupUi(self)  # Инициализация дизайна
-        self.UploadButton.clicked.connect(self.upload)
+        self.UploadButton.clicked.connect(self.upload)  # Связка кнопок и функций-обработчиков
         self.EraseButton.clicked.connect(self.erase)
         self.MakeFirmwareButton.clicked.connect(self.firmware)
         self.MakeFileSystemButton.clicked.connect(self.fileSystem)
         self.ClientSicret.clicked.connect(self.clientSicret)
 
+    # Функционал кнопки ClientSicret
+    # Авторизация в Google и добавление данных в таблицу
     def clientSicret(self):
-        self.token, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            'Open File', './',
-            'Files (*.json)')
-        creds = Credentials.from_authorized_user_file(self.token, SCOPES)
-        service = build('sheets', 'v4', credentials=creds)
+        # self.token, _ = QtWidgets.QFileDialog.getOpenFileName(
+        #     self,
+        #     'Open File', './',
+        #     'Files (*.json)')
+        # self.GoogleLine.setText(self.token)
+        # creds = Credentials.from_authorized_user_file(self.token, SCOPES)
 
-        # Call the Sheets API
-        sheet = service.spreadsheets()
-        response = sheet.values().update(
-            spreadsheetId=SPREADSHEET_ID,
-            range=RANGE_NAME,
-            valueInputOption='RAW',
-            body={u'range': 'A1:B', u'values': [[u'id1', u'password1'], [u'id2', u'password2']],
-                  u'majorDimension': u'ROWS'}).execute()
+        creds = None
+        if os.path.exists('GoogleAPI/token.json'):
+            creds = Credentials.from_authorized_user_file('GoogleAPI/token.json', SCOPES)
+        if not creds or not creds.valid:
+            if creds and creds.expired and creds.refresh_token:
+                creds.refresh(Request())
+            else:
+                flow = InstalledAppFlow.from_client_secrets_file(
+                    'GoogleAPI/credentials.json', SCOPES)
+                creds = flow.run_local_server(port=0)
+            # Save the credentials for the next run
+            with open('GoogleAPI/token.json', 'w') as token:
+                token.write(creds.to_json())
 
+        self.GoogleLine.setText('GoogleAPI/token.json')
+        try:
+            service = build('sheets', 'v4', credentials=creds)
+
+            sheet = service.spreadsheets()
+            response = sheet.values().append(
+                spreadsheetId=SPREADSHEET_ID,
+                range=RANGE_NAME,
+                valueInputOption='RAW',
+                insertDataOption='INSERT_ROWS',
+                body={u'range': 'A1:B', u'values': [[u'id1', u'password1'], [u'id2', u'password2']],
+                      u'majorDimension': u'ROWS'}).execute()
+        except HttpError as err:
+            print(err)
+
+    # Функционал кнопки Upload
+    # загрузка прошивки на устройство
     def upload(self):
         portName = str(self.ComPortComboBox.currentText())
         port = serial.Serial(portName)
-        eraseFlash(port=portName, baud=self.BAUD)
-        flashFirmware(port=portName, baud=self.BAUD)
-        flashSPIFFS(port=portName, baud=self.BAUD)
+        baud = str(port.baudrate)  # скорость работы порта
+
+        eraseFlash(port=portName, baud=baud)
+        flashFirmware(port=portName, baud=baud)
+        flashSPIFFS(port=portName, baud=baud)
 
         deviceId = getSerialNum(port)
         generatePassword(deviceId)
@@ -105,10 +133,13 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
                                              "border-radius:  10px;\n"
                                              "color:  rgb(220,20,60);")
 
+    # Функционал кнопки Erase
     def erase(self):
         portName = str(self.ComPortComboBox.currentText())
         eraseFlash(port=portName, baud=self.BAUD)
 
+    # Функционал кнопки Firmware
+    # Выбор файла с прошивкой
     def firmware(self):
         self.pathFileFirmware, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
@@ -118,6 +149,8 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
             self.FirmfareLine.setText(self.pathFileFirmware)
             self.MakeFileSystemButton.setEnabled(True)
 
+    # Функционал кнопки FileSystem
+    # Выбор файла с файловой системой
     def fileSystem(self):
         self.pathFileFileSystem, _ = QtWidgets.QFileDialog.getOpenFileName(
             self,
@@ -132,7 +165,7 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
 
 def main():
     app = QtWidgets.QApplication(sys.argv)  # Новый экземпляр QApplication
-    window = MyApp()  # Создаём объект класса ExampleApp
+    window = MyApp()
     window.show()  # Показываем окно
     app.exec_()  # и запускаем приложение
 
