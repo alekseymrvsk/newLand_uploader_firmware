@@ -13,7 +13,7 @@ SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
 # The ID and range of a sample spreadsheet.
 SAMPLE_SPREADSHEET_ID = '1osUz0zxn7pscwX19GV3E6wNbfe_1MRKbV7EnDnxZH6U'
-SAMPLE_RANGE_NAME = 'Class Data!A2:E'
+SAMPLE_RANGE_NAME = 'A1:B'
 
 
 def main():
@@ -54,7 +54,7 @@ def main():
         print('Name, Major:')
         for row in values:
             # Print columns A and E, which correspond to indices 0 and 4.
-            print('%s, %s' % (row[0], row[4]))
+            print('%s, %s' % (row[0], row[1]))
     except HttpError as err:
         print(err)
 

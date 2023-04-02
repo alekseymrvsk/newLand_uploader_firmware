@@ -33,9 +33,9 @@ from google.oauth2.credentials import Credentials
 - ComPortComboBox
 '''
 
-SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
+SCOPES = 'https://www.googleapis.com/auth/spreadsheets'
 SPREADSHEET_ID = '1osUz0zxn7pscwX19GV3E6wNbfe_1MRKbV7EnDnxZH6U'
-RANGE_NAME = 'Sheet1!A1:B'
+RANGE_NAME = 'A1:B'
 
 
 def getPort(portName: str):
@@ -61,6 +61,7 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
     def __init__(self):
         # Доступ к переменным, метода и т.д. в файле uploader.py
         super().__init__()
+        self.token = None
         self.setupUi(self)  # Инициализация дизайна
         self.UploadButton.clicked.connect(self.upload)
         self.EraseButton.clicked.connect(self.erase)
@@ -69,17 +70,21 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
         self.ClientSicret.clicked.connect(self.clientSicret)
 
     def clientSicret(self):
-        creds = Credentials.from_authorized_user_file('token.json', SCOPES)
+        self.token, _ = QtWidgets.QFileDialog.getOpenFileName(
+            self,
+            'Open File', './',
+            'Files (*.json)')
+        creds = Credentials.from_authorized_user_file(self.token, SCOPES)
         service = build('sheets', 'v4', credentials=creds)
 
         # Call the Sheets API
         sheet = service.spreadsheets()
-        response = sheet.values().append(
+        response = sheet.values().update(
             spreadsheetId=SPREADSHEET_ID,
             range=RANGE_NAME,
             valueInputOption='RAW',
-            insertDataOption='INSERT_ROWS',
-            body={'values': [['6', 'f']]}).execute()
+            body={u'range': 'A1:B', u'values': [[u'id1', u'password1'], [u'id2', u'password2']],
+                  u'majorDimension': u'ROWS'}).execute()
 
     def upload(self):
         portName = str(self.ComPortComboBox.currentText())
