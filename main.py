@@ -1,7 +1,10 @@
 from __future__ import print_function
 
 import sys
+
+import PyQt5
 import serial
+import os
 import serial.tools.list_ports
 from PyQt5 import QtWidgets
 import os.path
@@ -21,9 +24,6 @@ from googleapiclient.errors import HttpError
 но для демонстрации работы кода данный функционал перенесен в метод clientService, т.к. нет целевого контроллера, т.е.
 нет ID и пароля для добавления в таблицу.
 В таблицу добавляются константные значения
-
-Время от времени токен(token.json) становится не действительным. Нужно удалить его и запустить приложение. При нажатии 
-на кнопку ClientSicret после авторизации сгенерируется новый токен
 '''
 
 '''
@@ -73,6 +73,7 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
         self.MakeFirmwareButton.clicked.connect(self.firmware)
         self.MakeFileSystemButton.clicked.connect(self.fileSystem)
         self.ClientSicret.clicked.connect(self.clientSicret)
+        self.myclose = False  # myclose = True - закроете X
 
     # Функционал кнопки ClientSicret
     # Авторизация в Google и добавление данных в таблицу
@@ -150,7 +151,7 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
         if checkFile(self.FirmfareLine.text()):  # Если в соответствующем поле введен кореектный путь, используем его
             self.pathFileFirmware = self.FirmfareLine.text()
             self.MakeFileSystemButton.setEnabled(True)
-        else:                                    # иначе выбираем файл в проводнике
+        else:  # иначе выбираем файл в проводнике
             self.pathFileFirmware, _ = QtWidgets.QFileDialog.getOpenFileName(
                 self,
                 'Open File', './',
@@ -167,7 +168,7 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
             self.EraseButton.setEnabled(True)
             self.UploadButton.setEnabled(True)
             self.ClientSicret.setEnabled(True)
-        else:                                      # иначе выбираем файл в проводнике
+        else:  # иначе выбираем файл в проводнике
             self.pathFileFileSystem, _ = QtWidgets.QFileDialog.getOpenFileName(
                 self,
                 'Open File', './',
@@ -177,6 +178,12 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
                 self.EraseButton.setEnabled(True)
                 self.UploadButton.setEnabled(True)
                 self.ClientSicret.setEnabled(True)
+
+    # После закрытия приложения удалять файл-токен Google api
+    def closeEvent(self, *args, **kwargs):
+        super(QtWidgets.QMainWindow, self).closeEvent(*args, **kwargs)
+        if os.path.isfile('GoogleAPI/token.json'):
+            os.remove('GoogleAPI/token.json')
 
 
 def main():
