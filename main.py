@@ -19,8 +19,11 @@ from googleapiclient.errors import HttpError
 Добавление данных в гугл-таблицу должно быть в методе upload и 
 срабатывать после нажатия на кнопку Upload и после прошивк, 
 но для демонстрации работы кода данный функционал перенесен в метод clientService, т.к. нет целевого контроллера, т.е.
-нет ID и пароля для добавления в таблицу
-в таблицу добавляются константные значения
+нет ID и пароля для добавления в таблицу.
+В таблицу добавляются константные значения
+
+Время от времени токен(token.json) становится не действительным. Нужно удалить его и запустить приложение. При нажатии 
+на кнопку ClientSicret после авторизации сгенерируется новый токен
 '''
 
 '''
@@ -122,7 +125,7 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
         flashSPIFFS(port=portName, baud=baud)
 
         deviceId = getSerialNum(port)
-        generatePassword(deviceId)
+        password = generatePassword(deviceId)
         if deviceId is False:
             self.labelStatus.clear()
             self.labelPassword.clear()
@@ -132,6 +135,9 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
             self.labelPassword.setStyleSheet("background-color: rgb(220,20,60);;\n"
                                              "border-radius:  10px;\n"
                                              "color:  rgb(220,20,60);")
+        else:
+            self.labelStatus.setText('Successfully: ' + deviceId)
+            self.labelPassword.setText('Pass: ' + password)
 
     # Функционал кнопки Erase
     def erase(self):
@@ -141,26 +147,36 @@ class MyApp(QtWidgets.QMainWindow, uploader.Ui_MainWindow):
     # Функционал кнопки Firmware
     # Выбор файла с прошивкой
     def firmware(self):
-        self.pathFileFirmware, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            'Open File', './',
-            'Files (*.bin)')
-        if checkFile(self.pathFileFirmware):
-            self.FirmfareLine.setText(self.pathFileFirmware)
+        if checkFile(self.FirmfareLine.text()):  # Если в соответствующем поле введен кореектный путь, используем его
+            self.pathFileFirmware = self.FirmfareLine.text()
             self.MakeFileSystemButton.setEnabled(True)
+        else:                                    # иначе выбираем файл в проводнике
+            self.pathFileFirmware, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self,
+                'Open File', './',
+                'Files (*.bin)')
+            if checkFile(self.pathFileFirmware):
+                self.FirmfareLine.setText(self.pathFileFirmware)
+                self.MakeFileSystemButton.setEnabled(True)
 
     # Функционал кнопки FileSystem
     # Выбор файла с файловой системой
     def fileSystem(self):
-        self.pathFileFileSystem, _ = QtWidgets.QFileDialog.getOpenFileName(
-            self,
-            'Open File', './',
-            'Files (*.bin)')
-        if checkFile(self.pathFileFileSystem):
-            self.FileSistemLine.setText(self.pathFileFileSystem)
+        if checkFile(self.FileSistemLine.text()):  # Если в соответствующем поле введен кореектный путь, используем его
+            self.pathFileFileSystem = self.FileSistemLine.text()
             self.EraseButton.setEnabled(True)
             self.UploadButton.setEnabled(True)
             self.ClientSicret.setEnabled(True)
+        else:                                      # иначе выбираем файл в проводнике
+            self.pathFileFileSystem, _ = QtWidgets.QFileDialog.getOpenFileName(
+                self,
+                'Open File', './',
+                'Files (*.bin)')
+            if checkFile(self.pathFileFileSystem):
+                self.FileSistemLine.setText(self.pathFileFileSystem)
+                self.EraseButton.setEnabled(True)
+                self.UploadButton.setEnabled(True)
+                self.ClientSicret.setEnabled(True)
 
 
 def main():
